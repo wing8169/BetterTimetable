@@ -1,0 +1,1 @@
+java -jar BetterTimetable.jar
