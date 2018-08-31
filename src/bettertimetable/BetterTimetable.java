@@ -1,8 +1,5 @@
 package bettertimetable;
 
-//import com.sun.image.codec.jpeg.ImageFormatException;
-//import com.sun.image.codec.jpeg.JPEGCodec;
-//import com.sun.image.codec.jpeg.JPEGImageEncoder;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
@@ -16,15 +13,14 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.LinkedList;
+import java.util.StringTokenizer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.imageio.ImageIO;
@@ -41,12 +37,15 @@ import javax.swing.table.TableCellRenderer;
  */
 
 class WordWrapCellRenderer extends JTextArea implements TableCellRenderer {
+    
+    // wrap each cell to fit the words
     WordWrapCellRenderer() {
         setFont(new Font("Verdana", Font.PLAIN, 24));
         setLineWrap(true);
         setWrapStyleWord(true);
     }
 
+    // draw the text and background color
     @Override
     public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
         try{
@@ -62,38 +61,33 @@ class WordWrapCellRenderer extends JTextArea implements TableCellRenderer {
 }
 
 public class BetterTimetable extends javax.swing.JFrame {
-    String[] codes;
+    
+    String[] codes;  // codes selected by the user
     LinkedList<String> selected = new LinkedList();
     String groups, lecturerCode, location, start, end, types, crtCode;
     BufferedImage img1, img2, img3, img4, imgA, imgB, imgC, imgD;
-    LinkedList<String> items;
+    LinkedList<String> items;  // items available for that code
     DefaultTableModel model1;
     DefaultTableModel model2;
     
     public BetterTimetable(String[] codes) {
-        FileInputStream fis = null;
+        FileInputStream fis = null;  // to insert custom fonts
         try {
             initComponents();
             setLocationRelativeTo(null);
             setVisible(true);
             this.codes = codes;
+            // add the codes to first combo box
+            model1 = (DefaultTableModel)jTable1.getModel();
+            model2 = (DefaultTableModel)jTable2.getModel();
             for(String i: codes)
                 jComboBox1.addItem(i);
-            updateComboBox2();
             jComboBox1.addActionListener (new ActionListener () {
                 @Override
                 public void actionPerformed(ActionEvent e) {
                     updateComboBox2();
                 }
-            }); 
-//            jComboBox2.addActionListener (new ActionListener () {
-//                @Override
-//                public void actionPerformed(ActionEvent e) {
-//                    updateComboBox2();
-//                }
-//            }); 
-            model1 = (DefaultTableModel)jTable1.getModel();
-            model2 = (DefaultTableModel)jTable2.getModel();
+            });
             model1.setValueAt("MON", 0, 0);
             model1.setValueAt("TUE", 1, 0);
             model1.setValueAt("WED", 2, 0);
@@ -104,7 +98,7 @@ public class BetterTimetable extends javax.swing.JFrame {
             model2.setValueAt("WED", 2, 0);
             model2.setValueAt("THU", 3, 0);
             model2.setValueAt("FRI", 4, 0);
-            updateTable();
+            setTableWrapper();
             jTable1.getTableHeader().setFont(new Font("Verdana", Font.BOLD, 14));
             jTable1.setShowGrid(true);
             jTable1.setGridColor(Color.BLACK);
@@ -176,6 +170,7 @@ public class BetterTimetable extends javax.swing.JFrame {
             jLabel115.setFont(font2);
             jComboBox3.setFont(font2);
             jTable2.setBackground(new Color(0,161,183));
+            updateComboBox2();
         } catch (FileNotFoundException ex) {
             Logger.getLogger(BetterTimetable.class.getName()).log(Level.SEVERE, null, ex);
         } catch (FontFormatException ex) {
@@ -191,7 +186,7 @@ public class BetterTimetable extends javax.swing.JFrame {
         }
     }
     
-    private void updateTable(){
+    private void setTableWrapper(){
         jTable1.getColumnModel().getColumn(1).setCellRenderer(new WordWrapCellRenderer());
         jTable1.getColumnModel().getColumn(2).setCellRenderer(new WordWrapCellRenderer());
         jTable1.getColumnModel().getColumn(3).setCellRenderer(new WordWrapCellRenderer());
@@ -209,8 +204,8 @@ public class BetterTimetable extends javax.swing.JFrame {
     
     private void updateComboBox2(){
         items = new LinkedList();
-        jComboBox2.removeAllItems();
-        crtCode = jComboBox1.getSelectedItem().toString();
+        jComboBox2.removeAllItems();  // clear combo box 2
+        crtCode = jComboBox1.getSelectedItem().toString();  // get current code
         try {
             String fileName = "jdbc:sqlite:" + System.getProperty("user.dir") + "/dat/CourseManager.db";
             Connection conn = DriverManager.getConnection(fileName);
@@ -225,114 +220,59 @@ public class BetterTimetable extends javax.swing.JFrame {
                 start = rs.getString("start");
                 end = rs.getString("end");
                 types = rs.getString("types");
-                // example: WIX1002: G1(L) 9.00-9.59 DK2 ATF
+                // example: WIX1002: G1(L) FRI9.00-FRI9.59 DK2 ATF
                 String rslt = crtCode + " : G" + groups + "(" + types + ") " + start + "-" + end + " " + location + " " + lecturerCode;
                 boolean alreadyExists = false;
                 for(String x: selected){
-                    if(x.substring(0, x.length()-4).equals(crtCode + types)){
+                    StringTokenizer st = new StringTokenizer(x);
+                    String tmpCode = st.nextToken();
+                    st.nextToken(); // skip groups part
+                    String tmpTypes = st.nextToken();
+                    if(tmpCode.equals(crtCode) && tmpTypes.equals(types)){
                         alreadyExists = true;
                         break;
                     }
                 }
                 if(!alreadyExists){
-                    jComboBox2.removeItem(rslt);
                     jComboBox2.addItem(rslt);
                 }
-                String time = start.substring(3, start.indexOf("."));
-                int timeStart = Integer.parseInt(time);
-                String time2 = end.substring(3, end.indexOf("."));
-                int timeEnd = Integer.parseInt(time2);
-                int col;
-                int tmpTime = Integer.parseInt(time) - 8;
-                if(tmpTime == 12) col =  6;
-                else col = tmpTime % 6 + 1;
-                String day = start.substring(0, 3);
-                int row = 0;
-                switch(day){
-                    case "MON":
-                        row = 0;
-                        break;
-                    case "TUE":
-                        row = 1;
-                        break;
-                    case "WED":
-                        row = 2;
-                        break;
-                    case "THU":
-                        row = 3;
-                        break;
-                    case "FRI":
-                        row = 4;
-                        break;
-                }
-                DefaultTableModel model;
-                if(Double.parseDouble(start.substring(3, start.length()))<=13){
-                    model = model1;
-                }   
-                else{
-                    model = model2;
-                }
+                int timeStart = Integer.parseInt(start.substring(3, start.indexOf(".")));
+                int timeEnd = Integer.parseInt(end.substring(3, end.indexOf(".")));
                 boolean removeItem = false;
-                try{
-                    if(!model.getValueAt(row, col).toString().equals("")){
-                        removeItem = true;
+                for(int i=timeStart; i<=timeEnd; i++){
+                    String day = start.substring(0, 3);
+                    int row = 0;
+                    switch(day){
+                        case "MON":
+                            row = 0;
+                            break;
+                        case "TUE":
+                            row = 1;
+                            break;
+                        case "WED":
+                            row = 2;
+                            break;
+                        case "THU":
+                            row = 3;
+                            break;
+                        case "FRI":
+                            row = 4;
+                            break;
                     }
-                    else{
-                        for(int i=1; i+timeStart<=timeEnd; i++){
-                            tmpTime = Integer.parseInt(time)+i - 8;
-                            if(tmpTime == 12) col =  6;
-                            else col = tmpTime % 6 + 1;
-                            if(!model.getValueAt(row, col).toString().equals("")){
-                                removeItem = true;
-                                break;
-                            }
-                        }
-                    }
-                }catch(Exception e){
-                    for(int i=1; i+timeStart<=timeEnd; i++){
-                        tmpTime = Integer.parseInt(time)+i - 8;
-                        if(tmpTime == 12) col =  6;
-                        else col = tmpTime % 6 + 1;
-                        try{
-                            if(!model.getValueAt(row, col).toString().equals("")){
-                                removeItem = true;
-                                break;
-                            }
-                        }catch(Exception ex){
-                            
+                    int col;
+                    DefaultTableModel model;
+                    if(i<=13) model = (DefaultTableModel)jTable1.getModel();
+                    else model = (DefaultTableModel)jTable2.getModel();
+                    if(i-8 == 12) col =  6;
+                    else col = (i-8) % 6 + 1;
+                    if(model.getValueAt(row, col) != null){
+                        if(!model.getValueAt(row, col).toString().equals("")){
+                            removeItem = true;
+                            break;
                         }
                     }
                 }
-                if(removeItem){
-                    jComboBox2.removeItem(rslt);
-                }
-//                boolean disableButton = true;
-//                try{
-//                    if(model.getValueAt(row, col).equals(""))
-//                        disableButton = false;
-//                }catch(Exception e){
-//                    disableButton = false;
-//                }
-//                if(!disableButton){
-//                    for(int i=timeStart+1; i<=timeEnd; i++){
-//                        tmpTime = Integer.parseInt(time+1) - 8;
-//                        if(tmpTime == 12) col =  6;
-//                        else col = tmpTime % 6 + 1;
-//                        try{
-//                            if(!model.getValueAt(row, col).equals("")){
-//                                disableButton = true;
-//                                break;
-//                            }
-//                        }catch(Exception e){
-//                            disableButton = false;
-//                        }
-//                    }
-//                }
-//                if(disableButton){
-//                    allowed = false;
-//                }
-//                else
-//                    allowed = true;
+                if(removeItem) jComboBox2.removeItem(rslt);
             }
             rs.close();
             statement.close();
@@ -629,19 +569,14 @@ public class BetterTimetable extends javax.swing.JFrame {
             types = tempor.substring(tempor.indexOf("(")+1, tempor.indexOf(")"));
             start = tempor.substring(tempor.indexOf(")")+2, tempor.indexOf("-"));
             end = tempor.substring(tempor.indexOf("-")+1, tempor.lastIndexOf(".")+3);
-            lecturerCode = tempor.substring(tempor.lastIndexOf(" ")+1, tempor.length());
+            lecturerCode = tempor.substring(tempor.lastIndexOf(" ")+1);
             String tempor2 = tempor.substring(0, tempor.lastIndexOf(" "));
-            location = tempor2.substring(tempor2.lastIndexOf(" ")+1, tempor2.length());
-            DefaultTableModel model;
-            String indicator;
-            if(Double.parseDouble(start.substring(3, start.length()))<=13){
-                model = model1;
-                indicator = "1";
-            }   
-            else{
-                model = model2;
-                indicator = "2";
-            }
+            location = tempor2.substring(tempor2.lastIndexOf(" ")+1);
+            selected.add(crtCode + " " + groups + " " + types + " " + start + " " + end + " " + location + " " + lecturerCode);
+            jComboBox3.addItem(crtCode + " " + types);
+            int timeStart = Integer.parseInt(start.substring(3, start.indexOf(".")));
+            int timeEnd = Integer.parseInt(end.substring(3, end.indexOf(".")));
+            int col;
             String day = start.substring(0, 3);
             int row = 0;
             switch(day){
@@ -661,24 +596,15 @@ public class BetterTimetable extends javax.swing.JFrame {
                     row = 4;
                     break;
             }
-            int col = 0;
-            String time = start.substring(3, start.indexOf("."));
-            int timeStart = Integer.parseInt(time);
-            String time2 = end.substring(3, end.indexOf("."));
-            int timeEnd = Integer.parseInt(time2);
-            int tmpTime = Integer.parseInt(time) - 8;
-            if(tmpTime == 12) col =  6;
-            else col = tmpTime % 6 + 1;
-            // Ex : WIX1002(L) G1 DK2 LCS
-            String notes = crtCode + " : G" + groups + "(" + types + ") " + location + " " + lecturerCode;
-            model.setValueAt(notes, row, col);
-            int counter = 1;
-            for(int i=1; timeStart+i<=timeEnd; i++){
-                model.setValueAt(notes, row, col+i);
-                counter++;
+            String rslt = crtCode + " : " + groups + "(" + types + ")" + location + " " + lecturerCode;
+            DefaultTableModel model;
+            for(int i=timeStart; i<=timeEnd; i++){
+                if(i<=13) model = model1;
+                else model = model2;
+                if(i-8 == 12) col =  6;
+                else col = (i-8) % 6 + 1;
+                model.setValueAt(rslt, row, col);
             }
-            selected.add(crtCode + types + Integer.toString(row) + Integer.toString(col) + indicator + Integer.toString(counter));
-            jComboBox3.addItem(crtCode + types);
             updateComboBox2();
         }
     }//GEN-LAST:event_jLabel1MouseClicked
@@ -694,23 +620,50 @@ public class BetterTimetable extends javax.swing.JFrame {
     private void jLabel2MouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_jLabel2MouseClicked
         if(jComboBox3.getSelectedItem() != null){
             String item = jComboBox3.getSelectedItem().toString();
-            DefaultTableModel model;
-            int row, col;
+            StringTokenizer st2 = new StringTokenizer(item);
+            String codeToBeDeleted = st2.nextToken();
+            String typeToBeDeleted = st2.nextToken();
             for(int i=0; i<selected.size(); i++){
                 String x = selected.get(i);
-                if(x.substring(0, x.length()-4).equals(item)){
-                    row = x.charAt(x.length()-4) - 48;
-                    col = x.charAt(x.length()-3) - 48;
-                    if(x.charAt(x.length()-2) == '1'){
-                        model = model1;
-                    }
-                    else model = model2;
-                    model.setValueAt("", row, col);
-                    for(int j=1; j<x.charAt(x.length()-1)-48; j++)
-                        model.setValueAt("", row, col+j);
+                StringTokenizer st = new StringTokenizer(x);
+                String tmpCode = st.nextToken();
+                st.nextToken();
+                String tmpTypes = st.nextToken();
+                String tmpStart = st.nextToken();
+                String tmpEnd = st.nextToken();
+                if(codeToBeDeleted.equals(tmpCode) && typeToBeDeleted.equals(tmpTypes)){
                     selected.remove(i);
                     jComboBox3.removeItem(item);
-                    break;
+                    int timeStart = Integer.parseInt(tmpStart.substring(3, tmpStart.indexOf(".")));
+                    int timeEnd = Integer.parseInt(tmpEnd.substring(3, tmpEnd.indexOf(".")));
+                    int col;
+                    String day = tmpStart.substring(0, 3);
+                    int row = 0;
+                    switch(day){
+                        case "MON":
+                            row = 0;
+                            break;
+                        case "TUE":
+                            row = 1;
+                            break;
+                        case "WED":
+                            row = 2;
+                            break;
+                        case "THU":
+                            row = 3;
+                            break;
+                        case "FRI":
+                            row = 4;
+                            break;
+                    }
+                    DefaultTableModel model;
+                    for(int j=timeStart; j<=timeEnd; j++){
+                        if(j<=13) model = model1;
+                        else model = model2;
+                        if(j-8 == 12) col =  6;
+                        else col = (j-8) % 6 + 1;
+                        model.setValueAt("", row, col);
+                    }
                 }
             }
             updateComboBox2();

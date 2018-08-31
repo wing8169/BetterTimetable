@@ -366,12 +366,14 @@ public class Setting extends javax.swing.JFrame {
 
     private void jLabel2MouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_jLabel2MouseClicked
         int row = jTable1.getSelectedRow();
-        if(jTable1.getRowSorter()!=null)
-            row = jTable1.getRowSorter().convertRowIndexToModel(row);
         if(row != -1){
-            String item = model1.getValueAt(row, 0).toString();
-            model1.removeRow(row);
-            model2.addRow(new Object[]{item});
+            if(jTable1.getRowSorter()!=null)
+                row = jTable1.getRowSorter().convertRowIndexToModel(row);
+            if(row != -1){
+                String item = model1.getValueAt(row, 0).toString();
+                model1.removeRow(row);
+                model2.addRow(new Object[]{item});
+            }
         }
     }//GEN-LAST:event_jLabel2MouseClicked
 
